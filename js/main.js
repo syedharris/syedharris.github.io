@@ -234,17 +234,27 @@
       if (Math.abs(tx - x) > 0.1 || Math.abs(ty - y) > 0.1 || Math.abs(target - scale) > 0.005) raf = requestAnimationFrame(tick); else raf = null;
     }
     function kick() { if (!raf) raf = requestAnimationFrame(tick); }
+    var zones = [], lastX = 0, lastY = 0;
+    function hide() {
+      target = 0; c.style.opacity = "0"; document.body.classList.remove("framer-cursor-none"); kick();
+    }
+    document.addEventListener("pointermove", function (e) { lastX = e.clientX; lastY = e.clientY; }, { passive: true });
+    // content scrolling under a still pointer fires no pointerleave: re-check on scroll
+    window.addEventListener("scroll", function () {
+      if (target === 0) return;
+      var el = document.elementFromPoint(lastX, lastY);
+      if (!zones.some(function (z) { return el && z.contains(el); })) hide();
+    }, { passive: true });
     cards.forEach(function (a) {
       var zone = a.querySelector("[data-framer-background-image-wrapper]");
       zone = zone ? zone.parentElement : a;
+      zones.push(zone);
       zone.addEventListener("pointerenter", function (e) {
         tx = x = e.clientX; ty = y = e.clientY; target = 1; c.style.opacity = "1";
         document.body.classList.add("framer-cursor-none"); kick();
       });
       zone.addEventListener("pointermove", function (e) { tx = e.clientX; ty = e.clientY; kick(); });
-      zone.addEventListener("pointerleave", function () {
-        target = 0; c.style.opacity = "0"; document.body.classList.remove("framer-cursor-none"); kick();
-      });
+      zone.addEventListener("pointerleave", hide);
     });
   }
 
