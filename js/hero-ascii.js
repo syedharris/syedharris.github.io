@@ -9,6 +9,7 @@
     { name: "photo",    glyphs: "#=+*✦◆→×", img: 1.0, ascii: 0.0, dots: 0.0 },
     { name: "ascii",    glyphs: "#%@&$8",                        img: 0.12, ascii: 1.0, dots: 0.0 },
     { name: "halftone", glyphs: "●○◐◑·", img: 0.08, ascii: 0.0, dots: 1.0 },
+    { name: "ink",      glyphs: "#=+*✦◆→×", img: 0.0,  ascii: 0.0, dots: 0.0, ink: 1.0 },
     { name: "code",     glyphs: "{}<>/;=01",                     img: 0.16, ascii: 1.0, dots: 0.0, ramp: "01{}<>/;" }
   ];
   var HOLD = 4200, FADE = 1100; // ms per look, ms crossfade
@@ -88,6 +89,11 @@
     if (url) img.src = url;
 
     // orbiting glyphs
+    var mouse = { x: -9999, y: -9999 };
+    window.addEventListener("pointermove", function (e) {
+      var r = cvs.getBoundingClientRect();
+      mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top;
+    }, { passive: true });
     var N = 38, orbit = [];
     for (var k = 0; k < N; k++) {
       orbit.push({
@@ -102,7 +108,10 @@
     function ease(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
 
     var t0 = performance.now(), last = t0, running = true;
+    var frozen = null;
+    window.heroAscii = { look: function (i) { frozen = (i == null) ? null : i; }, looks: STYLES.map(function (x) { return x.name; }) };
     function weights(now) {
+      if (frozen != null) return { cur: STYLES[frozen], nxt: STYLES[frozen], m: 0 };
       var cycle = HOLD + FADE, n = STYLES.length;
       var t = (now - t0) % (cycle * n), idx = Math.floor(t / cycle), within = t - idx * cycle;
       var cur = STYLES[idx], nxt = STYLES[(idx + 1) % n], m = 0;
@@ -122,7 +131,7 @@
 
       // ascii + halftone layers drawn from the sampled grid
       if (grid) {
-        var asciiA = mix(c.ascii, n.ascii, m), dotsA = mix(c.dots, n.dots, m);
+        var asciiA = mix(c.ascii, n.ascii, m), dotsA = mix(c.dots, n.dots, m), inkA = mix(c.ink || 0, n.ink || 0, m);
         var ramp = (m > 0.5 ? n : c).ramp || " .:-=+*#%@";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.font = "600 " + Math.round(cell * 1.15) + 'px ui-monospace,"SF Mono",Menlo,Consolas,monospace';
@@ -138,6 +147,13 @@
               if (ci > 0 || ramp.charAt(0) !== " ") {
                 ctx.fillStyle = "rgba(255,255,255," + (asciiA * (0.45 + 0.5 * dark)).toFixed(3) + ")";
                 ctx.fillText(ramp.charAt(Math.max(0, ci)), px, py);
+              }
+            }
+            if (inkA > 0.01) {
+              var tone = g.l < 0.38 ? 1 : g.l < 0.62 ? 0.62 : g.l < 0.82 ? 0.3 : 0;
+              if (tone) {
+                ctx.fillStyle = "rgba(255,255,255," + (inkA * tone).toFixed(3) + ")";
+                ctx.fillRect(px - cell / 2, py - cell / 2, cell + 0.6, cell + 0.6);
               }
             }
             if (dotsA > 0.01) {
@@ -157,6 +173,11 @@
         var ex = Math.cos(o.th) * o.rx * iw, ey = Math.sin(o.th) * o.ry * ih;
         var ct = Math.cos(o.tilt), st = Math.sin(o.tilt);
         var X = cx + ex * ct - ey * st, Y = cy + ex * st + ey * ct;
+        var dx = X - mouse.x, dy = Y - mouse.y, dd = Math.sqrt(dx * dx + dy * dy) || 1, R = 130;
+        var push = dd < R ? (1 - dd / R) : 0;
+        o.px = (o.px || 0) + ((dx / dd) * push * 70 - (o.px || 0)) * 0.12;
+        o.py = (o.py || 0) + ((dy / dd) * push * 70 - (o.py || 0)) * 0.12;
+        X += o.px; Y += o.py;
         var z = Math.sin(o.th); // -1 back .. 1 front
         var s = o.sz * (0.7 + 0.3 * (z + 1) / 2);
         var ch = set.charAt((o.gi + Math.floor(now / 1800)) % set.length);
