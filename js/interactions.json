@@ -1,0 +1,42 @@
+{
+  "framer-uC1Mt|framer-v-c2ys59|A": {
+    "hover": [
+      {"p": "", "c": "framer-uC1Mt framer-c2ys59 framer-v-c2ys59 hover framer-rltuch"},
+      {"p": "0", "tr": "translate3d(0px, 19.6107px, 0px)"},
+      {"p": "1", "tr": "translate3d(0px, 19.6107px, 0px)"}
+    ]
+  },
+  "framer-4iSM5|framer-v-s1m5s1|A": {
+    "hover": [
+      {"p": "", "c": "framer-4iSM5 framer-ii3oj3 framer-v-s1m5s1 hover framer-1iq3b06"},
+      {"p": "0.0", "tr": "translate3d(0px, 20.6171px, 0px)"},
+      {"p": "0.1", "tr": "translate3d(0px, 20.6171px, 0px)"}
+    ]
+  },
+  "framer-4iSM5|framer-v-rq2012|A": {
+    "hover": [
+      {"p": "", "c": "framer-4iSM5 framer-ii3oj3 framer-v-rq2012 hover framer-1iq3b06"},
+      {"p": "0.0", "tr": "translate3d(0px, 33.991px, 0px)"},
+      {"p": "0.1", "tr": "translate3d(0px, 33.991px, 0px)"}
+    ]
+  },
+  "framer-Yyhd2|framer-v-f4qgyi|A": {
+    "hover": [
+      {"p": "", "c": "framer-Yyhd2 framer-N1dSz framer-f4qgyi framer-v-f4qgyi hover framer-1jei1zo"},
+      {"p": "1.0", "tr": "translate3d(-17.0021px, 17.002px, 0px) scale(0.0283768, 0.0283768)", "br": "14298.5%"},
+      {"p": "1.1", "tr": "translate3d(-20.9878px, 20.9878px, 0px) rotate(-45deg)"},
+      {"p": "1.2", "tr": "translate(-50%, -50%) translate3d(-20.9879px, 20.9878px, 0px) rotate(-45deg)"}
+    ]
+  },
+  "framer-Yyhd2|framer-v-f4qgyi|SPAN": {
+    "hover": [
+      {"p": "", "c": "framer-Yyhd2 framer-N1dSz framer-f4qgyi framer-v-f4qgyi hover framer-1jei1zo"},
+      {"p": "1.0", "tr": "translate3d(-17.0021px, 17.0022px, 0px) scale(0.0283768, 0.0283768)", "br": "14298.5%"},
+      {"p": "1.1", "tr": "translate3d(-20.9878px, 20.9878px, 0px) rotate(-45deg)"},
+      {"p": "1.2", "tr": "translate(-50%, -50%) translate3d(-20.9879px, 20.9878px, 0px) rotate(-45deg)"}
+    ]
+  },
+  "framer-cYWO5|framer-v-12jxnja|DIV": {
+    "hover": [{"p": "", "c": "framer-cYWO5 framer-12jxnja framer-v-12jxnja hover"}]
+  }
+}
