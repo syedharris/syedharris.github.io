@@ -56,7 +56,7 @@
       cvs.width = Math.round(W * dpr); cvs.height = Math.round(H * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ix = padX; iy = padY; cx = ix + iw / 2; cy = iy + ih / 2;
-      sample();
+      sample(); buildInk();
     }
 
     // sample the portrait into a coarse luminance/alpha grid
@@ -85,7 +85,38 @@
         }
       } catch (e) { grid = null; }
     }
-    img.onload = function () { ready = true; sample(); };
+    var inkCv = null;
+    var BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+    function buildInk() {
+      if (!ready || !iw) return;
+      var px = Math.max(2, Math.round(iw / 230));
+      var c2 = Math.max(10, Math.floor(iw / px)), r2 = Math.max(10, Math.floor(ih / px));
+      var off = document.createElement("canvas");
+      off.width = c2; off.height = r2;
+      var oc = off.getContext("2d");
+      var ir = img.width / img.height, br = c2 / r2, dw, dh;
+      if (ir > br) { dh = r2; dw = r2 * ir; } else { dw = c2; dh = c2 / ir; }
+      oc.drawImage(img, (c2 - dw) / 2, (r2 - dh) / 2, dw, dh);
+      var d;
+      try { d = oc.getImageData(0, 0, c2, r2).data; } catch (e) { inkCv = null; return; }
+      inkCv = document.createElement("canvas");
+      inkCv.width = Math.round(c2 * px); inkCv.height = Math.round(r2 * px);
+      var ic = inkCv.getContext("2d");
+      for (var y = 0; y < r2; y++) {
+        for (var x = 0; x < c2; x++) {
+          var i = (y * c2 + x) * 4;
+          if (d[i + 3] < 120) continue;
+          var l = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255;
+          var dark = 1 - l; // shadows get ink
+          var th = (BAYER[(y % 4) * 4 + (x % 4)] + 0.5) / 16;
+          var on = dark * 1.25 > th;
+          if (!on) continue;
+          ic.fillStyle = dark > 0.55 ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.78)";
+          ic.fillRect(x * px, y * px, px, px);
+        }
+      }
+    }
+    img.onload = function () { ready = true; sample(); buildInk(); };
     if (url) img.src = url;
 
     // orbiting glyphs
@@ -149,13 +180,6 @@
                 ctx.fillText(ramp.charAt(Math.max(0, ci)), px, py);
               }
             }
-            if (inkA > 0.01) {
-              var tone = g.l < 0.38 ? 1 : g.l < 0.62 ? 0.62 : g.l < 0.82 ? 0.3 : 0;
-              if (tone) {
-                ctx.fillStyle = "rgba(255,255,255," + (inkA * tone).toFixed(3) + ")";
-                ctx.fillRect(px - cell / 2, py - cell / 2, cell + 0.6, cell + 0.6);
-              }
-            }
             if (dotsA > 0.01) {
               var rad = cell * 0.5 * (0.15 + 0.85 * (1 - g.l * 0.8));
               ctx.fillStyle = "rgba(255,255,255," + (dotsA * 0.92).toFixed(3) + ")";
@@ -163,6 +187,11 @@
             }
           }
         }
+      }
+
+      if (inkCv) {
+        var inkA2 = mix(c.ink || 0, n.ink || 0, m);
+        if (inkA2 > 0.01) { ctx.globalAlpha = inkA2; ctx.drawImage(inkCv, ix, iy, iw, ih); ctx.globalAlpha = 1; }
       }
 
       // revolving glyphs; set swaps with the look
