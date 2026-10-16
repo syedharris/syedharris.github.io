@@ -437,6 +437,28 @@
     }, 6000);
   }
 
+  /* ---------------------------------------------------------------- count-up numbers */
+  function initCountUp() {
+    var els = document.querySelectorAll(".ab-num[data-count]");
+    if (!els.length) return;
+    function run(el) {
+      var end = parseFloat(el.getAttribute("data-count")) || 0;
+      if (reduce) { el.textContent = String(end); return; }
+      var t0 = performance.now(), dur = 1300;
+      function step(now) {
+        var k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+        el.textContent = String(Math.round(end * e));
+        if (k < 1) requestAnimationFrame(step);
+      }
+      el.textContent = "0";
+      requestAnimationFrame(step);
+    }
+    var io = new IntersectionObserver(function (en) {
+      en.forEach(function (x) { if (x.isIntersecting) { io.unobserve(x.target); run(x.target); } });
+    }, { threshold: 0.6 });
+    els.forEach(function (el) { io.observe(el); });
+  }
+
   function init() {
     initImageFade();
     runAppear();
@@ -449,6 +471,7 @@
     initSliders();
     initVideos();
     initSmoothScroll();
+    initCountUp();
   }
 
   function getJSON(name) {
