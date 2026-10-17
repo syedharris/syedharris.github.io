@@ -459,6 +459,237 @@
     els.forEach(function (el) { io.observe(el); });
   }
 
+  /* ---------------------------------------------------------------- creatives: stacked 3D carousel + lightbox */
+  function initCreatives() {
+    var stage = document.querySelector("#creatives .cr-stage");
+    if (!stage) return;
+    var cards = Array.prototype.slice.call(stage.querySelectorAll(".cr-card"));
+    var n = cards.length;
+    if (!n) return;
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var q = function (s) { return document.querySelector("#creatives " + s); };
+    var elIdx = q(".cr-idx"), elTot = q(".cr-tot"), elTtl = q(".cr-ttl"), elDsc = q(".cr-dsc");
+    var elInfo = q(".cr-info"), elNum = q(".cr-num");
+    var segs = Array.prototype.slice.call(document.querySelectorAll("#creatives .cr-s"));
+    function pad(v) { return (v < 10 ? "0" : "") + v; }
+
+    /* lightbox */
+    var box = document.createElement("div");
+    box.id = "cr-lightbox";
+    box.setAttribute("role", "dialog");
+    box.setAttribute("aria-modal", "true");
+    box.innerHTML = "<img alt=''><p></p>";
+    document.body.appendChild(box);
+    var big = box.querySelector("img"), cap = box.querySelector("p");
+    function closeBox() { box.classList.remove("open"); }
+    function openBox(im) {
+      big.src = im.currentSrc || im.src;
+      big.alt = im.alt || "";
+      cap.textContent = im.getAttribute("data-title") || "";
+      box.classList.add("open");
+    }
+    box.addEventListener("click", closeBox);
+
+    /* geometry: a gently curved ring, front card centred, cards keep their own proportions */
+    var chh = 0, GAP = 36, RING = 1500, half = Math.floor(n / 2);
+    var ratio = cards.map(function (c) {
+      var im = c.querySelector("img");
+      var w = parseFloat(im.getAttribute("width")) || 4, h = parseFloat(im.getAttribute("height")) || 3;
+      return w / h;
+    });
+    var widths = [], layouts = [];
+    function rank(i, c) {
+      var k = (((i - c) % n) + n) % n;
+      return k > n / 2 ? k - n : k;
+    }
+    function measure() {
+      var sw = stage.clientWidth;
+      chh = Math.min(stage.clientHeight * 0.78, sw * 0.7);
+      widths = ratio.map(function (r) { return Math.min(chh * r, sw * (sw < 700 ? 0.7 : 0.46)); });
+      GAP = sw < 700 ? 22 : 40;
+      RING = sw < 700 ? 1100 : 1900;
+      cards.forEach(function (el, i) {
+        var h = widths[i] / ratio[i];
+        el.style.width = widths[i] + "px";
+        el.style.height = h + "px";
+        el.style.marginLeft = -widths[i] / 2 + "px";
+        el.style.marginTop = -h / 2 + "px";
+      });
+      /* arc position of every card for each possible front card */
+      layouts = [];
+      for (var c = 0; c < n; c++) {
+        var byRank = [];
+        for (var i = 0; i < n; i++) byRank.push({ i: i, k: rank(i, c) });
+        byRank.sort(function (p, q) { return p.k - q.k; });
+        var L = { s: [], op: [], b: [] };
+        var zero = 0;
+        byRank.forEach(function (e, idx) { if (e.k === 0) zero = idx; });
+        L.s[byRank[zero].i] = 0;
+        for (var a = zero + 1; a < byRank.length; a++) {
+          var prev = byRank[a - 1], cur = byRank[a];
+          L.s[cur.i] = L.s[prev.i] + widths[prev.i] / 2 + GAP + widths[cur.i] / 2;
+        }
+        for (var b = zero - 1; b >= 0; b--) {
+          var nxt = byRank[b + 1], cu = byRank[b];
+          L.s[cu.i] = L.s[nxt.i] - widths[nxt.i] / 2 - GAP - widths[cu.i] / 2;
+        }
+        byRank.forEach(function (e) {
+          var ak = Math.abs(e.k);
+          L.op[e.i] = ak <= 2 ? 1 : ak >= 4 ? 0 : (4 - ak) / 2;
+          L.b[e.i] = Math.max(0.8, 1 - ak * 0.07);
+        });
+        layouts.push(L);
+      }
+    }
+
+    var pos = 0, target = 0, raf = 0, shown = -1;
+    function render() {
+      var c0 = Math.round(pos), d = pos - c0, t = Math.abs(d), c1 = c0 + (d >= 0 ? 1 : -1);
+      var A = layouts[((c0 % n) + n) % n], B = layouts[((c1 % n) + n) % n];
+      for (var i = 0; i < n; i++) {
+        var s = A.s[i] + (B.s[i] - A.s[i]) * t;
+        var op = A.op[i] + (B.op[i] - A.op[i]) * t;
+        var br = A.b[i] + (B.b[i] - A.b[i]) * t;
+        var th = s / RING;
+        if (th > 1) th = 1; else if (th < -1) th = -1;
+        var x = RING * Math.sin(th), z = RING * (1 - Math.cos(th));
+        var st = cards[i].style;
+        st.transform = "translate3d(" + x + "px,0," + z + "px) rotateY(" + (-th * 57.2958) + "deg)";
+        st.zIndex = 1000 - Math.round(Math.abs(s) / 40);
+        st.setProperty("--o", op);
+        st.filter = br < 0.999 ? "brightness(" + br + ")" : "none";
+        st.visibility = op < 0.01 ? "hidden" : "visible";
+      }
+    }
+    function caption() {
+      var idx = ((Math.round(target) % n) + n) % n;
+      if (idx === shown) return;
+      var first = shown === -1;
+      shown = idx;
+      var im = cards[idx].querySelector("img");
+      if (elIdx) elIdx.textContent = pad(idx + 1);
+      if (elTot) elTot.textContent = "/ " + pad(n);
+      if (elTtl) elTtl.textContent = im.getAttribute("data-title") || "";
+      if (elDsc) elDsc.textContent = im.getAttribute("data-desc") || "";
+      segs.forEach(function (s, k) { s.classList.toggle("on", k === idx); });
+      if (!first && !reduce) {
+        [elInfo, elNum].forEach(function (e) { if (!e) return; e.classList.remove("swap"); void e.offsetWidth; e.classList.add("swap"); });
+      }
+    }
+    function tick() {
+      var d = target - pos;
+      if (reduce || Math.abs(d) < 0.0008) { pos = target; render(); raf = 0; return; }
+      pos += d * 0.12;
+      render();
+      raf = requestAnimationFrame(tick);
+    }
+    function go(t) {
+      target = t;
+      caption();
+      if (!raf) raf = requestAnimationFrame(tick);
+    }
+    function step(d) { go(Math.round(target) + d); }
+    function goIndex(i) {
+      var cur = Math.round(target), off = ((i - cur) % n + n) % n;
+      if (off > n / 2) off -= n;
+      go(cur + off);
+    }
+
+    /* load every illustration shortly before the section scrolls into view */
+    if ("IntersectionObserver" in window) {
+      var pre = new IntersectionObserver(function (en) {
+        if (!en[0].isIntersecting) return;
+        cards.forEach(function (c) { c.querySelector("img").loading = "eager"; });
+        pre.disconnect();
+      }, { rootMargin: "900px 0px" });
+      pre.observe(stage);
+    }
+
+    measure(); render(); caption();
+    window.addEventListener("resize", function () { measure(); render(); });
+
+    /* drag / click */
+    var down = null, dragging = false, startTarget = 0, lastX = 0, lastT = 0, vx = 0;
+    stage.addEventListener("pointerdown", function (e) {
+      if (e.button !== undefined && e.button !== 0) return;
+      down = { x: e.clientX, id: e.pointerId, el: e.target };
+      dragging = false; startTarget = target; lastX = e.clientX; lastT = performance.now(); vx = 0;
+    });
+    stage.addEventListener("pointermove", function (e) {
+      if (!down) return;
+      var dx = e.clientX - down.x;
+      if (!dragging && Math.abs(dx) > 6) {
+        dragging = true;
+        stage.classList.add("drag");
+        try { stage.setPointerCapture(down.id); } catch (err) {}
+      }
+      if (dragging) {
+        var now = performance.now();
+        vx = (e.clientX - lastX) / Math.max(now - lastT, 1);
+        lastX = e.clientX; lastT = now;
+        go(startTarget - dx / (chh * 0.8));
+      }
+    });
+    function release() {
+      if (!down) return;
+      var wasDrag = dragging, el = down.el;
+      down = null; dragging = false;
+      stage.classList.remove("drag");
+      if (wasDrag) { go(Math.round(target - vx * 0.9)); return; }
+      var li = el && el.closest ? el.closest(".cr-card") : null;
+      if (!li) return;
+      var idx = cards.indexOf(li);
+      if (idx === ((Math.round(target) % n) + n) % n) openBox(li.querySelector("img"));
+      else goIndex(idx);
+    }
+    stage.addEventListener("pointerup", release);
+    stage.addEventListener("pointercancel", function () { down = null; dragging = false; stage.classList.remove("drag"); });
+
+    /* sideways trackpad / wheel only, vertical scroll still moves the page */
+    var wheelT = 0, wheelAcc = 0;
+    stage.addEventListener("wheel", function (e) {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) || Math.abs(e.deltaX) < 2) return;
+      e.preventDefault();
+      e.stopPropagation();
+      wheelAcc += e.deltaX * 0.004;
+      go(Math.round(target) + wheelAcc);
+      clearTimeout(wheelT);
+      wheelT = setTimeout(function () { wheelAcc = 0; go(Math.round(target)); }, 150);
+    }, { passive: false });
+
+    /* buttons, segments, keys */
+    Array.prototype.forEach.call(document.querySelectorAll("#creatives .cr-btn"), function (b) {
+      b.addEventListener("click", function () { step(parseInt(b.getAttribute("data-dir"), 10)); });
+    });
+    segs.forEach(function (s) { s.addEventListener("click", function () { goIndex(parseInt(s.getAttribute("data-i"), 10)); }); });
+    stage.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowLeft") { e.preventDefault(); step(-1); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); step(1); }
+      else if (e.key === "Enter") { openBox(cards[((Math.round(target) % n) + n) % n].querySelector("img")); }
+    });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeBox(); });
+
+    /* slow continuous drift while visible and untouched */
+    var inView = false, hover = false, lastT2 = 0;
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (en) { inView = en[0].isIntersecting; }, { threshold: 0.3 }).observe(stage);
+    }
+    stage.addEventListener("pointerenter", function () { hover = true; });
+    stage.addEventListener("pointerleave", function () { hover = false; });
+    stage.addEventListener("focusin", function () { hover = true; });
+    stage.addEventListener("focusout", function () { hover = false; });
+    function drift(ts) {
+      var dt = lastT2 ? Math.min(ts - lastT2, 64) : 16;
+      lastT2 = ts;
+      if (inView && !hover && !down && !box.classList.contains("open") && !document.hidden) {
+        target += dt * 0.0002;
+        if (!raf) raf = requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(drift);
+    }
+    if (!reduce) requestAnimationFrame(drift);
+  }
+
   function init() {
     initImageFade();
     runAppear();
@@ -472,6 +703,7 @@
     initVideos();
     initSmoothScroll();
     initCountUp();
+    initCreatives();
   }
 
   function getJSON(name) {
